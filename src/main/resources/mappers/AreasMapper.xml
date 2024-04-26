@@ -1,0 +1,115 @@
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.carrot_market.area.db.AreaMapper">
+
+    <!-- 지역 ID를 받아서 지역정보를 반환 -->
+    <select id="selectAreaById" resultType="com.example.carrot_market.area.domain.model.Area">
+        SELECT *
+          FROM areas  a
+         WHERE a.id = #{id}
+    </select>
+
+<!--    <select id="selectAreasByLatLonAndRange" resultType="com.example.carrot_market.area.domain.model.Area">-->
+<!--        SELECT * FROM areas-->
+<!--        WHERE ST_Distance_Sphere(-->
+<!--        geo_point,-->
+<!--        ST_GeomFromText(CONCAT('POINT(', #{lon}, ' ', #{lat}, ')'))-->
+<!--        ) &lt;= #{distance}-->
+<!--    </select>-->
+
+    <select id="selectAreasByLatLonAndRange" resultType="com.example.carrot_market.area.domain.model.Area">
+        SELECT *
+        FROM areas
+        WHERE ST_Distance_Sphere(
+        geo_point,
+        ST_GeomFromText(CONCAT('POINT(', #{lon}, ' ', #{lat}, ')'))
+        ) &lt;= #{distance}
+        ORDER BY ST_Distance_Sphere(
+        geo_point,
+        ST_GeomFromText(CONCAT('POINT(', #{lon}, ' ', #{lat}, ')'))
+        ) ASC
+    </select>
+
+    <insert id="insertAreaToUser">
+        INSERT INTO user_area (user_id, area_id, range_area, is_default)
+        VALUES
+        (#{userId}, #{areaId}, #{areaRange}, #{isDefault})
+    </insert>
+
+    <!-- 특정 지역 ID가 사용자의 현재 설정된 지역에 가까운지 검증 -->
+    <select id="validateAreaToUserDefault" parameterType="int" resultType="boolean">
+        SELECT ST_DISTANCE_SPHERE(
+            a1.geo_point,a2.geo_point)&lt;=
+            <if test="currentRange == 1">1500</if>
+            <if test="currentRange == 2">3000</if>
+            <if test="currentRange == 3">6000</if>
+          FROM areas   a1,
+               areas   a2
+         WHERE a1.id = ${productAreaId}
+           AND a2.id = ${areaId}
+    </select>
+    <select id="deleteAreaToUser" parameterType="com.example.carrot_market.area.domain.model.Area" resultType="boolean">
+        delete
+        from user_area
+        where area_id = #{areaId} and user_id = #{userId}
+
+    </select>
+
+    <!-- 사용자에게 설정된 지역 목록 -->
+    <select id="getAreaListByUserId" parameterType="int" resultType="com.example.carrot_market.area.domain.model.UserArea">
+        SELECT ua.user_id,
+               ua.area_id,
+               a.do_city,
+               a.si_gu,
+               a.dong,
+               a.eup,
+               a.ri,
+               a.latitude,
+               a.longitude,
+               ua.is_default,
+               ua.range_area
+          FROM user_area ua
+          JOIN areas a
+            ON ua.area_id = a.id
+         WHERE ua.user_id = #{userId}
+    </select>
+
+    <!-- 사용자에게 기본으로 설정된 지역 목록 -->
+    <select id="getDefaultAreaByUserId" parameterType="int" resultType="com.example.carrot_market.area.domain.model.UserArea">
+        SELECT ua.user_id,
+               ua.area_id,
+               a.do_city,
+               a.si_gu,
+               a.dong,
+               a.eup,
+               a.ri,
+               a.latitude,
+               a.longitude,
+               ua.is_default,
+               ua.range_area
+          FROM user_area ua
+          JOIN areas a
+            ON ua.area_id = a.id
+         WHERE ua.user_id = #{userId}
+           AND ua.is_default = 1
+    </select>
+
+    <select id="getAreaName" parameterType="int" resultType="com.example.carrot_market.area.domain.model.Area">
+        SELECT * FROM areas WHERE id=#{areaId}
+    </select>
+
+    <update id="updateUserArea">
+        UPDATE user_area
+           SET area_id = #{areaId},
+               range_area = #{areaRange},
+               is_default = #{isDefault}
+         WHERE user_id = #{userId}
+           AND area_id = #{orgAreaId}
+    </update>
+
+    <update id="updateUserOtherArea">
+        UPDATE user_area
+           SET is_default = 0
+         WHERE user_id = #{userId}
+           AND area_id = #{otherAreaId}
+    </update>
+</mapper>

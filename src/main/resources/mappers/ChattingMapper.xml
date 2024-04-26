@@ -1,0 +1,89 @@
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.carrot_market.chatting.repository.ChattingMapper">
+
+    <insert id="createChatRoom" parameterType="com.example.carrot_market.chatting.domain.ChatRoom" useGeneratedKeys="true"  keyProperty="id">
+        INSERT INTO chat_rooms (product_id, seller_id, customer_id, last_chat)
+        VALUES (#{productId}, #{sellerId}, #{customerId}, #{lastChat})
+    </insert>
+
+    <insert id="createMessage" parameterType="com.example.carrot_market.chatting.domain.Chat" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO chat (chat_room_id, sender_user_id, message, chat_type)
+        VALUES (#{chatRoomId}, #{senderUserId}, #{message}, #{chatType})
+    </insert>
+
+    <select id="findChatRoomByRoomId" parameterType="int" resultType="com.example.carrot_market.chatting.domain.ChatRoom">
+        SELECT *
+        FROM chat_rooms
+        WHERE id = #{roomId}
+    </select>
+
+    <select id="findChatRoomListByUserId" parameterType="int" resultType="com.example.carrot_market.chatting.domain.ChatRoom">
+        SELECT *
+        FROM chat_rooms
+        WHERE seller_id = #{userId} OR customer_id = #{userId}
+    </select>
+
+    <select id="findChatRoomAggregateListByUserId" parameterType="int" resultType="com.example.carrot_market.chatting.domain.ChatRoomAggregate">
+        SELECT cr.*,
+        u.id AS partnerId,
+        u.nickname,
+        u.profile_image,
+        a.dong as address,
+        p.title as productTitle,
+        p.price as productPrice,
+        p.state as productState,
+        productImage
+        FROM chat_rooms cr
+        LEFT JOIN
+            users u ON (cr.seller_id = #{userId} AND cr.customer_id = u.id) OR (cr.customer_id = #{userId} AND cr.seller_id = u.id)
+        LEFT JOIN
+            products p ON cr.product_id = p.id
+        LEFT JOIN
+            areas a ON p.selling_area_id = a.id
+        LEFT JOIN
+            (SELECT type_id, MIN(file_path) AS productImage FROM images WHERE type = 1 GROUP BY type_id) img ON p.id = img.type_id
+        WHERE cr.seller_id = #{userId} OR cr.customer_id = #{userId}
+    </select>
+
+
+    <select id="findChatListByRoomId" parameterType="int" resultType="com.example.carrot_market.chatting.domain.Chat">
+        SELECT *
+        FROM chat
+        WHERE chat_room_id = #{roomId}
+    </select>
+
+    <update id="deleteChatRoom" parameterType="int">
+        UPDATE chat_rooms
+        SET is_exist_seller = 0, is_exist_customer = 0
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateChatRoom" parameterType="com.example.carrot_market.chatting.dto.UpdateChatRoomRequestDto">
+        UPDATE chat_rooms
+        <set>
+            <if test="sellerLastReadChatId != 0">
+                seller_last_read_chat_id = #{sellerLastReadChatId},
+            </if>
+            <if test="customerLastReadChatId != 0">
+                customer_last_read_chat_id = #{customerLastReadChatId},
+            </if>
+            <if test="isExistSeller != null">
+                is_exist_seller = #{isExistSeller},
+            </if>
+            <if test="isExistCustomer != null">
+                is_exist_customer = #{isExistCustomer},
+            </if>
+            <if test="lastChat != null">
+                last_chat = #{lastChat},
+            </if>
+        </set>
+        WHERE Id = ${id}
+    </update>
+
+    <update id="exitChatRoom" parameterType="com.example.carrot_market.chatting.domain.ChatRoom">
+        UPDATE chatting_room
+        SET is_exist_seller = #{isExistSeller}, is_exist_customer = #{isExistCustomer}
+        WHERE id = #{id}
+    </update>
+
+</mapper>
